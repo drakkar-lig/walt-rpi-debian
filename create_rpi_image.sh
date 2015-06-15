@@ -48,7 +48,7 @@ MAINTAINER $DOCKER_IMAGE_MAINTAINER
 
 # resume deboostrap process
 RUN ln -sf /bin/true /bin/mount
-RUN /debootstrap/debootstrap --second-stage
+RUN /debootstrap/debootstrap --second-stage || apt-get -y --force-yes -f install
 
 # update apt sources
 ADD sources.list /etc/apt/sources.list
