@@ -11,7 +11,6 @@ cd $TMP_DIR
 
 cat > sources.list << EOF
 deb $DEBIAN_RPI_REPO_URL $DEBIAN_RPI_REPO_VERSION $DEBIAN_RPI_REPO_SECTIONS
-deb http://http.debian.net/debian $DEBIAN_RPI_REPO_VERSION-backports main
 EOF
 docker-preserve-cache sources.list $DOCKER_CACHE_PRESERVE_DIR
 
@@ -58,7 +57,6 @@ ADD sources.list /etc/apt/sources.list
 RUN gpg --keyserver pgpkeys.mit.edu --recv-key $DEBIAN_ARCHIVE_GPG_KEY
 RUN gpg -a --export $DEBIAN_ARCHIVE_GPG_KEY | sudo apt-key add -
 RUN apt-get update
-RUN apt-get -y -t $DEBIAN_RPI_REPO_VERSION-backports install $DEBIAN_RPI_BACKPORT_PACKAGES
 
 # install python packages
 RUN pip install walt-node
