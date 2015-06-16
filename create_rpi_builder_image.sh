@@ -6,6 +6,8 @@ TMP_DIR=$(mktemp -d)
 cd $TMP_DIR
 cp -a $THIS_DIR/walt_bcmrpi_linux.config .
 
+num_threads=$(nproc)
+
 cat > Dockerfile << EOF
 FROM $DOCKER_DEBIAN_BASE_IMAGE
 MAINTAINER $DOCKER_IMAGE_MAINTAINER
@@ -46,9 +48,9 @@ ADD walt_bcmrpi_linux.config /tmp/kernel/.config
 RUN printf 'CONFIG_CROSS_COMPILE="%s"' \$CCPREFIX >> /tmp/kernel/.config && \
     echo >> /tmp/kernel/.config
 RUN make      ARCH=arm olddefconfig
-RUN make -j 4 ARCH=arm && \
-    make -j 4 ARCH=arm modules && \
-    make -j 4 ARCH=arm INSTALL_MOD_PATH=$RPI_FS_PATH modules_install && \
+RUN make -j $num_threads ARCH=arm && \
+    make -j $num_threads ARCH=arm modules && \
+    make -j $num_threads ARCH=arm INSTALL_MOD_PATH=$RPI_FS_PATH modules_install && \
     cp arch/arm/boot/zImage $RPI_FS_PATH #&& \
 #    rm -rf /tmp/kernel
 WORKDIR $RPI_FS_PATH
