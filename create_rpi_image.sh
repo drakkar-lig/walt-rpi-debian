@@ -42,21 +42,32 @@ restrict ::1
 EOF
 docker-preserve-cache ntp.conf $DOCKER_CACHE_PRESERVE_DIR
 
+ADDITIONAL_PACKAGES=$(cat << EOF | tr '\n' ' '
+ssh sudo module-init-tools usbutils
+python-pip udev lldpd ntp vim texinfo iputils-ping
+python-serial ntpdate
+EOF
+)
+
 cat > Dockerfile << EOF
 FROM $DOCKER_DEBIAN_RPI_BASE_IMAGE
 MAINTAINER $DOCKER_IMAGE_MAINTAINER
 
 # resume deboostrap process
 RUN ln -sf /bin/true /bin/mount
-RUN /debootstrap/debootstrap --second-stage || apt-get -y --force-yes -f install
+RUN /sbin/cdebootstrap-foreign && apt-get clean
 
 # update apt sources
 ADD sources.list /etc/apt/sources.list
 
 # install backported (more recent) packages
 RUN gpg --keyserver pgpkeys.mit.edu --recv-key $DEBIAN_ARCHIVE_GPG_KEY
-RUN gpg -a --export $DEBIAN_ARCHIVE_GPG_KEY | sudo apt-key add -
-RUN apt-get update
+RUN gpg -a --export $DEBIAN_ARCHIVE_GPG_KEY | apt-key add -
+
+# install packages
+RUN apt-get update && \
+    apt-get -y --no-install-recommends install $ADDITIONAL_PACKAGES && \
+    apt-get clean
 
 # install python packages
 RUN pip install walt-node
