@@ -12,7 +12,8 @@ cat > Dockerfile << EOF
 FROM $DOCKER_DEBIAN_BASE_IMAGE
 MAINTAINER $DOCKER_IMAGE_MAINTAINER
 
-RUN apt-get update && apt-get install -y cdebootstrap debian-archive-keyring qemu-user-static git make gcc bc
+RUN dpkg --add-architecture i386
+RUN apt-get update && apt-get install -y cdebootstrap debian-archive-keyring qemu-user-static:i386 git make gcc bc
 #RUN wget $DEBIAN_RPI_REPO_KEY -O - | apt-key add -
 #RUN apt-get update
 RUN cdebootstrap --allow-unauthenticated --arch=armhf --foreign -f minimal \
