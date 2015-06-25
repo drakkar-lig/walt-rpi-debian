@@ -45,7 +45,7 @@ docker-preserve-cache ntp.conf $DOCKER_CACHE_PRESERVE_DIR
 ADDITIONAL_PACKAGES=$(cat << EOF | tr '\n' ' '
 ssh sudo module-init-tools usbutils
 python-pip udev lldpd ntp vim texinfo iputils-ping
-python-serial ntpdate
+python-serial ntpdate ifupdown lockfile-progs
 EOF
 )
 
@@ -70,7 +70,14 @@ RUN apt-get update && \
     apt-get clean
 
 # install python packages
-RUN pip install walt-node
+RUN pip install walt-node	# 0.4-5
+# the following is the same as running 'systemctl enable walt-node'
+# on a system that is really running
+RUN ln -s /etc/systemd/system/walt-node.service \
+	/etc/systemd/system/multi-user.target.wants/walt-node.service
+
+# update kernel modules setup
+RUN depmod \$(cd /lib/modules/; ls -1)
 
 # fstab settings
 RUN mkdir -p /media/sdcard
