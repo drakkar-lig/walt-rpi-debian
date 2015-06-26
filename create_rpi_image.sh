@@ -86,15 +86,8 @@ ADD fstab /etc/fstab
 # ntp configuration
 ADD ntp.conf /etc/ntp.conf
 
-# add pi user
-# Note: /home/pi/.ssh/authorized_keys must be updated
-# when the rpi filesystem is installed on the server
-RUN groupadd $RPI_USER
-RUN useradd -g $RPI_USER -G sudo $RPI_USER
-RUN echo "$RPI_USER:$RPI_USER_PASSWORD" | chpasswd
-RUN mkdir -p /home/$RPI_USER/.ssh/
-RUN touch /home/$RPI_USER/.hushlogin
-RUN chown -R $RPI_USER:$RPI_USER /home/$RPI_USER
+# disable verbose login message
+RUN touch /root/.hushlogin
 
 # clean up
 RUN apt-get clean
