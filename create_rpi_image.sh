@@ -92,6 +92,9 @@ RUN touch /root/.hushlogin
 
 # clean up
 RUN apt-get clean
+
+# set an entrypoint (handy when debugging)
+ENTRYPOINT /bin/bash
 EOF
 docker build -t "$DOCKER_DEBIAN_RPI_IMAGE" .
 result=$?
