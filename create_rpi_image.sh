@@ -71,7 +71,7 @@ RUN apt-get update && \
     apt-get clean
 
 # install python packages
-RUN pip install walt-node	# 0.4-5
+RUN pip install walt-node	# 0.6
 # the following is the same as running 'systemctl enable walt-node'
 # on a system that is really running
 RUN ln -s /etc/systemd/system/walt-node.service \
