@@ -16,6 +16,7 @@ all: .date_files/rpi_image
 	./create_rpi_builder_image.sh && touch $@
 
 publish:
+	docker rmi $(DOCKER_DEFAULT_RPI_IMAGE) 2>/dev/null || true # remove any previous tag
 	docker tag $(DOCKER_DEBIAN_RPI_IMAGE) $(DOCKER_DEFAULT_RPI_IMAGE)
 	docker push $(DOCKER_DEBIAN_RPI_IMAGE)
 	docker push $(DOCKER_DEFAULT_RPI_IMAGE)
