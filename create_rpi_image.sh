@@ -9,22 +9,23 @@ enable-cross-arch
 
 cd $TMP_DIR
 
-cat > sources.list << EOF
+mkdir -p files/etc/apt files/root files/media/sdcard
+touch files/root/.hushlogin
+
+cat > files/etc/apt/sources.list << EOF
 deb $DEBIAN_RPI_REPO_URL $DEBIAN_RPI_REPO_VERSION $DEBIAN_RPI_REPO_SECTIONS
 EOF
-docker-preserve-cache sources.list $DOCKER_CACHE_PRESERVE_DIR
 
-cat > fstab << EOF
+cat > files/etc/fstab << EOF
 proc        /proc       proc    nodev,noexec,nosuid 0 0
 /dev/mmcblk0p1  /media/sdcard   vfat    user,noauto         0 0
 EOF
-docker-preserve-cache fstab $DOCKER_CACHE_PRESERVE_DIR
 
 # ntp configuration
 # Note: __SERVER_IP__ will have to be updated when the 
 # rpi filesystem is installed on the server
 # (it depends on the local WalT server configuration).
-cat > ntp.conf << EOF
+cat > files/etc/ntp.conf << EOF
 driftfile /var/lib/ntp/ntp.drift
 
 statistics loopstats peerstats clockstats
@@ -40,7 +41,8 @@ restrict -6 default kod notrap nomodify nopeer noquery
 restrict 127.0.0.1
 restrict ::1
 EOF
-docker-preserve-cache ntp.conf $DOCKER_CACHE_PRESERVE_DIR
+
+docker-preserve-cache files $DOCKER_CACHE_PRESERVE_DIR
 
 ADDITIONAL_PACKAGES=$(cat << EOF | tr '\n' ' '
 ssh sudo module-init-tools usbutils
@@ -55,18 +57,14 @@ FROM $DOCKER_DEBIAN_RPI_BASE_IMAGE
 MAINTAINER $DOCKER_IMAGE_MAINTAINER
 
 # resume deboostrap process
-RUN ln -sf /bin/true /bin/mount
-RUN /sbin/cdebootstrap-foreign && apt-get clean
-
-# update apt sources
-ADD sources.list /etc/apt/sources.list
-
-# install backported (more recent) packages
-RUN gpg --keyserver pgpkeys.mit.edu --recv-key $DEBIAN_ARCHIVE_GPG_KEY
-RUN gpg -a --export $DEBIAN_ARCHIVE_GPG_KEY | apt-key add -
+RUN ln -sf /bin/true /bin/mount && \
+    /sbin/cdebootstrap-foreign && \
+    apt-get clean
 
 # install packages
-RUN apt-get update && \
+RUN gpg --keyserver pgpkeys.mit.edu --recv-key $DEBIAN_ARCHIVE_GPG_KEY && \
+    gpg -a --export $DEBIAN_ARCHIVE_GPG_KEY | apt-key add - && \
+    apt-get update && \
     apt-get -y --no-install-recommends install $ADDITIONAL_PACKAGES && \
     apt-get clean
 
@@ -77,21 +75,11 @@ RUN pip install walt-node	# 0.6
 RUN ln -s /etc/systemd/system/walt-node.service \
 	/etc/systemd/system/multi-user.target.wants/walt-node.service
 
+# add various files
+ADD files /
+
 # update kernel modules setup
 RUN depmod \$(cd /lib/modules/; ls -1)
-
-# fstab settings
-RUN mkdir -p /media/sdcard
-ADD fstab /etc/fstab
-
-# ntp configuration
-ADD ntp.conf /etc/ntp.conf
-
-# disable verbose login message
-RUN touch /root/.hushlogin
-
-# clean up
-RUN apt-get clean
 
 # set an entrypoint (handy when debugging)
 ENTRYPOINT /bin/bash
