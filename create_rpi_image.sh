@@ -9,7 +9,8 @@ enable-cross-arch
 
 cd $TMP_DIR
 
-mkdir -p files/etc/apt files/root files/media/sdcard
+mkdir -p files/etc/apt files/etc/walt files/etc/default \
+        files/root files/bin files/media/sdcard
 touch files/root/.hushlogin
 
 cat > files/etc/apt/sources.list << EOF
@@ -42,13 +43,51 @@ restrict 127.0.0.1
 restrict ::1
 EOF
 
+cat > files/etc/default/ptpd << EOF
+# /etc/default/ptpd
+
+# Set to "yes" to actually start ptpd automatically
+START_DAEMON=no
+
+# Add command line options for ptpd
+PTPD_OPTS="-c /etc/ptpd.conf"
+EOF
+
+cat > files/etc/ptpd.conf << EOF
+ptpengine:interface=eth0
+ptpengine:preset=slaveonly
+global:cpuaffinity_cpucore=0
+global:ignore_lock=Y
+global:log_file=/var/log/ptpd.log
+global:log_status=y
+ptpengine:domain=42
+ptpengine:ip_dscp=46
+EOF
+
+cat > files/bin/enable-ptp.sh << EOF
+#!/bin/sh
+sed -i -e 's/=no/=yes/' /etc/default/ptpd  # enable ptp
+/usr/sbin/update-rc.d ntp disable          # disable ntp
+EOF
+chmod +x files/bin/enable-ptp.sh
+
+cat > files/etc/walt/image.spec << EOF
+{
+    # optional features implemented
+    # -----------------------------
+    "features": {
+        "ptp": "/bin/enable-ptp.sh"
+    }
+}
+EOF
+
 docker-preserve-cache files $DOCKER_CACHE_PRESERVE_DIR
 
 ADDITIONAL_PACKAGES=$(cat << EOF | tr '\n' ' '
 ssh sudo module-init-tools usbutils
 python-pip udev lldpd ntp vim texinfo iputils-ping
 python-serial ntpdate ifupdown lockfile-progs
-avahi-daemon libnss-mdns cron
+avahi-daemon libnss-mdns cron ptpd
 EOF
 )
 
