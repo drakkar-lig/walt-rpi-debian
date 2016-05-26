@@ -108,7 +108,7 @@ RUN gpg --keyserver pgpkeys.mit.edu --recv-key $DEBIAN_ARCHIVE_GPG_KEY && \
     apt-get clean
 
 # install python packages
-RUN pip install walt-node	# 0.6
+RUN pip install --upgrade pip walt-node	# walt-node 0.9, walt-common 0.9
 # the following is the same as running 'systemctl enable walt-node'
 # on a system that is really running
 RUN ln -s /etc/systemd/system/walt-node.service \
