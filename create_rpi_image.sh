@@ -118,7 +118,7 @@ RUN ln -s /etc/systemd/system/walt-node.service \
 ADD files /
 
 # update kernel modules setup
-RUN depmod \$(cd /lib/modules/; ls -1)
+RUN for subdir in \$(cd /lib/modules/; ls -1); do depmod \$subdir; done
 
 # set an entrypoint (handy when debugging)
 ENTRYPOINT /bin/bash
