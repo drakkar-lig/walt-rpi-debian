@@ -87,7 +87,7 @@ ADDITIONAL_PACKAGES=$(cat << EOF | tr '\n' ' '
 ssh sudo module-init-tools usbutils
 python-pip udev lldpd ntp vim texinfo iputils-ping
 python-serial ntpdate ifupdown lockfile-progs
-avahi-daemon libnss-mdns cron ptpd
+avahi-daemon libnss-mdns cron ptpd busybox-static
 EOF
 )
 
