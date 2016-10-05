@@ -43,7 +43,7 @@ RUN cdebootstrap --allow-unauthenticated --arch=armhf --foreign -f minimal \
 RUN cp /usr/bin/qemu-arm-static $RPI_FS_PATH/usr/bin/qemu-arm-static
 
 # download kernel binary, dtb and modules
-RUN cd $RPI_FS_PATH && mkdir -p rpi-b rpi-b-plus rpi-2-b rpi-3-b  
+RUN cd $RPI_FS_PATH && mkdir -p $ALL_RPI_TYPES
 RUN cd /tmp && svn co -q $RPI_FIRMWARE_REPO/boot && cd boot && \
     $BOOT_COPIES && \
     $BOOT_SYMLINKS
