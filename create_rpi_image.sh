@@ -99,6 +99,8 @@ cat > files/etc/walt/image.spec << EOF
 }
 EOF
 
+cp -p $THIS_DIR/walt-clone-sdcard files/bin/
+
 docker-preserve-cache files $DOCKER_CACHE_PRESERVE_DIR
 
 ADDITIONAL_PACKAGES=$(cat << EOF | tr '\n' ' '

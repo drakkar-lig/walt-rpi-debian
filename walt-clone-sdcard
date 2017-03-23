@@ -1,0 +1,75 @@
+#!/bin/bash
+set -e
+
+MOUNTPOINT=/media/sdcard
+DEVNAME=mmcblk0
+PART=p1
+DEVDEVICE="/dev/$DEVNAME"
+PARTDEVICE="$DEVDEVICE$PART"
+
+wait_for_device()
+{
+    # clear kernel log
+    dmesg -C
+    # wait for the first log line containing mmcblk0: p1
+    while ! dmesg -c | grep -o -m 1 "$DEVNAME: $PART"
+    do
+        sleep 0.5
+    done
+}
+
+fat_size_in_megs()
+{
+    mount $MOUNTPOINT
+    df -BM --output=size $MOUNTPOINT | tail -n 1 | tr -d M
+    umount $MOUNTPOINT
+}
+
+reformat()
+{
+    # one big fat partition
+    echo ',,c;' | sfdisk $DEVDEVICE >/dev/null
+    # create the fat partition
+    mkfs -t vfat $PARTDEVICE >/dev/null
+}
+
+run()
+{
+    echo "Copying files of current SD card..."
+    mount $MOUNTPOINT
+    cd $MOUNTPOINT && tar cfz /tmp/sd-files.tar.gz * && cd - >/dev/null
+    umount $MOUNTPOINT
+    echo "done."
+    
+    while true
+    do
+        echo "Replace the SD card with another one (or type Ctrl-C to stop)."
+        wait_for_device
+
+        echo
+        echo "Detected a new SD card."
+        echo "Checking size..."
+        if [ $(fat_size_in_megs) -le 100 ]
+        then
+            echo "Re-formating..."
+            reformat
+        fi
+        
+        echo "Copying files..."
+        mount $MOUNTPOINT
+        tar xfz /tmp/sd-files.tar.gz -C $MOUNTPOINT
+        umount $MOUNTPOINT
+        sync; sync
+        
+        echo "done."
+        echo
+    done
+}
+
+ctrl_c_finalize() {
+    mountpoint $MOUNTPOINT >/dev/null && umount $MOUNTPOINT
+}
+
+trap "ctrl_c_finalize" INT
+
+run
