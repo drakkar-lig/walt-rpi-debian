@@ -106,6 +106,7 @@ ssh sudo module-init-tools usbutils
 python-pip udev lldpd ntp vim texinfo iputils-ping
 python-serial ntpdate ifupdown lockfile-progs
 avahi-daemon libnss-mdns cron ptpd busybox-static
+netcat dosfstools
 EOF
 )
 
