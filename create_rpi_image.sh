@@ -23,9 +23,8 @@ proc        /proc       proc    nodev,noexec,nosuid 0 0
 EOF
 
 # ntp configuration
-# Note: __SERVER_IP__ will have to be updated when the 
-# rpi filesystem is installed on the server
-# (it depends on the local WalT server configuration).
+# Note: %(server_ip)s will be updated by the server when the
+# image is deployed, as indicated in image.spec below.
 cat > files/etc/ntp.conf << EOF
 driftfile /var/lib/ntp/ntp.drift
 
@@ -34,7 +33,7 @@ filegen loopstats file loopstats type day enable
 filegen peerstats file peerstats type day enable
 filegen clockstats file clockstats type day enable
 
-server __SERVER_IP__
+server %(server_ip)s
 
 restrict -4 default kod notrap nomodify nopeer noquery
 restrict -6 default kod notrap nomodify nopeer noquery
@@ -89,7 +88,14 @@ cat > files/etc/walt/image.spec << EOF
     # -----------------------------
     "features": {
         "ptp": "/bin/enable-ptp.sh"
-    }
+    },
+
+    # files that need to be updated by the server
+    # when the image is deployed
+    # -------------------------------------------
+    "templates": [
+        "/etc/ntp.conf"
+    ]
 }
 EOF
 
