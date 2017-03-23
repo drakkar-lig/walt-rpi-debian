@@ -64,6 +64,18 @@ ptpengine:domain=42
 ptpengine:ip_dscp=46
 EOF
 
+cat > files/bin/blink << EOF
+#!/bin/sh
+if [ "\$1" = "1" ]
+then
+    led_module="heartbeat"
+else
+    led_module="mmc0"
+fi
+echo \$led_module > /sys/class/leds/led0/trigger
+EOF
+chmod +x files/bin/blink
+
 cat > files/bin/enable-ptp.sh << EOF
 #!/bin/sh
 sed -i -e 's/=no/=yes/' /etc/default/ptpd  # enable ptp
