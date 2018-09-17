@@ -1,0 +1,4 @@
+* raspberry pi 2B or newer models:
+  $ cp extra/Module7.symvers Module.symvers
+* older models:
+  $ cp extra/Module.symvers Module.symvers

@@ -10,43 +10,20 @@ enable-cross-arch
 cd $TMP_DIR
 
 mkdir -p files/etc/apt files/etc/walt files/etc/default \
-        files/root files/bin files/media/sdcard
+        files/root files/bin files/media/sdcard \
+        files/boot/.common
 touch files/root/.hushlogin
-
-cat > files/etc/apt/sources.list << EOF
-deb $DEBIAN_RPI_REPO_URL $DEBIAN_RPI_REPO_VERSION $DEBIAN_RPI_REPO_SECTIONS
-EOF
 
 cat > files/etc/fstab << EOF
 proc        /proc       proc    nodev,noexec,nosuid 0 0
 /dev/mmcblk0p1  /media/sdcard   vfat    user,noauto         0 0
 EOF
 
-# ntp configuration
-# Note: %(server_ip)s will be updated by the server when the
-# image is deployed, as indicated in image.spec below.
-cat > files/etc/ntp.conf << EOF
-driftfile /var/lib/ntp/ntp.drift
-
-statistics loopstats peerstats clockstats
-filegen loopstats file loopstats type day enable
-filegen peerstats file peerstats type day enable
-filegen clockstats file clockstats type day enable
-
-server %(server_ip)s
-
-restrict -4 default kod notrap nomodify nopeer noquery
-restrict -6 default kod notrap nomodify nopeer noquery
-
-restrict 127.0.0.1
-restrict ::1
-EOF
-
 cat > files/etc/default/ptpd << EOF
 # /etc/default/ptpd
 
-# Set to "yes" to actually start ptpd automatically
-START_DAEMON=no
+# Set to "yes" to start ptpd automatically
+START_DAEMON=yes
 
 # Add command line options for ptpd
 PTPD_OPTS="-c /etc/ptpd.conf"
@@ -61,6 +38,8 @@ global:log_file=/var/log/ptpd.log
 global:log_status=y
 ptpengine:domain=42
 ptpengine:ip_dscp=46
+ptpengine:ip_mode=hybrid
+ptpengine:log_delayreq_interval=3
 EOF
 
 cat > files/bin/blink << EOF
@@ -75,65 +54,84 @@ echo \$led_module > /sys/class/leds/led0/trigger
 EOF
 chmod +x files/bin/blink
 
-cat > files/bin/enable-ptp.sh << EOF
-#!/bin/sh
-sed -i -e 's/=no/=yes/' /etc/default/ptpd  # enable ptp
-/usr/sbin/update-rc.d ntp disable          # disable ntp
-EOF
-chmod +x files/bin/enable-ptp.sh
-
-cat > files/etc/walt/image.spec << EOF
-{
-    # optional features implemented
-    # -----------------------------
-    "features": {
-        "ptp": "/bin/enable-ptp.sh"
-    },
-
-    # files that need to be updated by the server
-    # when the image is deployed
-    # -------------------------------------------
-    "templates": [
-        "/etc/ntp.conf"
-    ]
-}
-EOF
-
 cp -p $THIS_DIR/walt-clone-sdcard files/bin/
+cp -p $THIS_DIR/generate-start-uboot.sh \
+      $THIS_DIR/config.txt $THIS_DIR/cmdline.txt \
+      files/boot/.common/
 
 docker-preserve-cache files $DOCKER_CACHE_PRESERVE_DIR
 
+cp -p $THIS_DIR/82B129927FA3303E.pub .
+
 ADDITIONAL_PACKAGES=$(cat << EOF | tr '\n' ' '
-ssh sudo module-init-tools usbutils
-python-pip udev lldpd ntp vim texinfo iputils-ping
+init ssh sudo kmod usbutils
+python-pip udev lldpd vim texinfo iputils-ping
 python-serial ntpdate ifupdown lockfile-progs
 avahi-daemon libnss-mdns cron ptpd busybox-static
-netcat dosfstools
+netcat dosfstools u-boot-tools
 EOF
 )
+
+create_model_boot_dir() {
+    model="$1"
+    kernel_name="$2"
+    dtb_name="$3"
+    has_pxe="$4"
+
+    cat << EOF
+mkdir "/boot/$model" && cd "/boot/$model"   && \\
+EOF
+    # u-boot files
+    cat << EOF
+ln -s ../.common/${kernel_name} kernel      && \
+ln -s ../.common/${dtb_name} dtb            && \
+ln -s ../.common/start.uboot start.uboot    && \\
+EOF
+    # pxe boot files
+    if [ "$has_pxe" -eq 1 ]
+    then
+        for f in bootcode.bin \
+                 fixup.dat fixup_cd.dat fixup_db.dat fixup_x.dat \
+                 overlays \
+                 start.elf start_cd.elf start_db.elf start_x.elf \
+                 cmdline.txt config.txt ${kernel_name} ${dtb_name}
+        do
+            echo "ln -s ../.common/${f} ${f}  && \\"
+        done
+    fi
+}
 
 cat > Dockerfile << EOF
 FROM $DOCKER_DEBIAN_RPI_BASE_IMAGE
 MAINTAINER $DOCKER_IMAGE_MAINTAINER
+LABEL walt.node.models=rpi-b,rpi-b-plus,rpi-2-b,rpi-3-b,rpi-3-b-plus
 
 # resume deboostrap process
 RUN ln -sf /bin/true /bin/mount && \
-    /sbin/cdebootstrap-foreign && \
+    /debootstrap/debootstrap --second-stage && \
+    cp /etc/apt/sources.list.saved /etc/apt/sources.list && \
     apt-get clean
 
+# register Raspberry Pi Archive Signing Key
+ADD 82B129927FA3303E.pub /tmp/
+RUN apt-key add - < /tmp/82B129927FA3303E.pub && rm /tmp/82B129927FA3303E.pub
+
 # install packages
-RUN gpg --keyserver pgpkeys.mit.edu --recv-key $DEBIAN_ARCHIVE_GPG_KEY && \
-    gpg -a --export $DEBIAN_ARCHIVE_GPG_KEY | apt-key add - && \
-    apt-get update && \
+RUN    apt-get update && \
     apt-get -y --no-install-recommends install $ADDITIONAL_PACKAGES && \
     apt-get clean
 
-# install python packages
-RUN pip install --upgrade pip walt-node	# walt-node 0.9, walt-common 0.9
-RUN walt-setup-systemd
-
 # add various files
 ADD files /
+
+# generate start.uboot and populate boot dirs
+RUN cd /boot/.common/ && ./generate-start-uboot.sh && \
+    $(create_model_boot_dir rpi-b kernel.img bcm2708-rpi-b.dtb 0)
+    $(create_model_boot_dir rpi-b-plus kernel.img bcm2708-rpi-b-plus.dtb 0)
+    $(create_model_boot_dir rpi-2-b kernel7.img bcm2709-rpi-2-b.dtb 0)
+    $(create_model_boot_dir rpi-3-b kernel7.img bcm2710-rpi-3-b.dtb 1)
+    $(create_model_boot_dir rpi-3-b-plus kernel7.img bcm2710-rpi-3-b-plus.dtb 1)
+    true
 
 # update kernel modules setup
 RUN for subdir in \$(cd /lib/modules/; ls -1); do depmod \$subdir; done
@@ -141,7 +139,7 @@ RUN for subdir in \$(cd /lib/modules/; ls -1); do depmod \$subdir; done
 # set an entrypoint (handy when debugging)
 ENTRYPOINT /bin/bash
 EOF
-docker build -t "$DOCKER_DEBIAN_RPI_IMAGE" .
+docker build -t "waltplatform/rpi-stretch" .
 result=$?
 
 rm -rf $TMP_DIR
