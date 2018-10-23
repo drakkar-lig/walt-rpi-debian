@@ -18,27 +18,36 @@ exit
 setenv walt_init "/bin/walt-init"
 
 # Some bootargs are normally given by the firmware when it runs the linux kernel.
-# But in our case the firmware calls u-boot, and we would like u-boot to read them
-# in order to pass them to the kernel. But reading these parameters is apparently
-# not implemented in u-boot, so we hardcode them here.
+# They are passed using the "/chosen" node of the device-tree.
+# In our case the firmware calls u-boot, so we have to read them now in order to
+# pass them again to the kernel.
 
-setenv bootargs "console=ttyAMA0,115200"    # default, overriden below for some models
-
-if test "$node_model" = "rpi-3-b"
-then
-    setenv bootargs "8250.nr_uarts=1 bcm2708_fb.fbwidth=1824 bcm2708_fb.fbheight=984\
-                     bcm2708_fb.fbswap=1 dma.dmachans=0x7f35 bcm2709.boardrev=0xa02082\
-                     bcm2709.serial=0xd49980ca bcm2709.uart_clock=48000000\
-                     vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000\
-                     console=ttyS0,115200 kgdboc=ttyS0,115200 console=tty1"
-fi
-
-if test "$node_model" = "rpi-3-b-plus"
-then
-    setenv bootargs "8250.nr_uarts=1 bcm2708_fb.fbwidth=1824 bcm2708_fb.fbheight=984\
-                     bcm2708_fb.fbswap=1 vc_mem.mem_base=0x3ec00000 vc_mem.mem_size=0x40000000\
-                     console=ttyS0,115200 console=tty1"
-fi
+echo 'Analysing bootargs given by firmware...'
+# tell u-boot to look at the given device-tree
+fdt addr $fdt_addr
+# read "/chosen" node, property "bootargs", and store its value in variable "given_bootargs"
+fdt get value given_bootargs /chosen bootargs
+# but there is a little more to deal with.
+# if cmdline.txt is missing or empty on the SD card, the firmware will set some "default"
+# boot arguments.
+# in this case, we have to remove some of them:
+# * root=, rootfstype=, rootwait are not set correctly for walt context
+# * kgdboc="..."  may make the kernel bootup fail (and hang!) in some cases
+#   (support for kgdb may just be missing in the kernel)
+setenv bootargs ""
+for arg in "${given_bootargs}"
+do
+    setexpr rootprefix sub "(root).*" "root" "${arg}"
+    if test "$rootprefix" != "root"
+    then
+        setexpr kgdbprefix sub "(kgdboc).*" "kgdboc" "${arg}"
+        if test "$kgdbprefix" != "kgdboc"
+        then
+            # OK, we can keep this bootarg given by the firmware
+            setenv bootargs "${bootargs} ${arg}"
+        fi
+    fi
+done
 
 # retrieve the dtb (device-tree-blob) and kernel
 tftp ${fdt_addr_r} ${serverip}:dtb || reset
@@ -47,9 +56,8 @@ tftp ${kernel_addr_r} ${serverip}:kernel || reset
 # compute kernel command line args
 setenv nfs_root "/var/lib/walt/nodes/%s/fs"
 setenv nfs_bootargs "root=/dev/nfs nfsroot=${nfs_root},nfsvers=3,acregmax=5"
-setenv rpi_bootargs "smsc95xx.macaddr=${ethaddr}"
 setenv other_bootargs "init=${walt_init} ip=dhcp panic=15"
-setenv bootargs "$bootargs $nfs_bootargs $rpi_bootargs $other_bootargs"
+setenv bootargs "$bootargs $nfs_bootargs $other_bootargs"
 
 # boot
 echo 'Booting kernel...'
