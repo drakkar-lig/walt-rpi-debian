@@ -1,1 +1,2 @@
 enable_uart=1
+max_usb_current=1
