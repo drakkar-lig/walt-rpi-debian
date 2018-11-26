@@ -19,7 +19,7 @@ RPI_FIRMWARE_REPO="https://github.com/raspberrypi/firmware/tags/1.20180817"
 RPI_KERNEL_REPO="https://github.com/raspberrypi/linux/tags/raspberrypi-kernel_1.20180817-1"
 RPI_KERNEL_VERSION="4.14.62"
 RPI_DEBIAN_VERSION="$DEBIAN_VERSION"
-RPI_DEBIAN_MIRROR_URL="http://mirror.switch.ch/ftp/mirror/raspbian/raspbian"
+RPI_DEBIAN_MIRROR_URL="http://mirrordirector.raspbian.org/raspbian"
 RPI_DEBIAN_SECTIONS="main contrib non-free rpi"
 
 PACKAGES=$(cat << EOF | tr "\n" " "
