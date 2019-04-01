@@ -15,9 +15,9 @@ DEBIAN_VERSION="stretch"
 # Of course those two must match the same kernel version.
 # Also note that we will use svn instead of git, in order
 # to avoid cloning the whole history.
-RPI_FIRMWARE_REPO="https://github.com/raspberrypi/firmware/tags/1.20180817"
-RPI_KERNEL_REPO="https://github.com/raspberrypi/linux/tags/raspberrypi-kernel_1.20180817-1"
-RPI_KERNEL_VERSION="4.14.62"
+RPI_FIRMWARE_REPO="https://github.com/raspberrypi/firmware/tags/1.20190215"
+RPI_KERNEL_REPO="https://github.com/raspberrypi/linux/tags/raspberrypi-kernel_1.20190215-1"
+RPI_KERNEL_VERSION="4.14.98" # match version of modules, see subdir 'modules' of firmware repo
 RPI_DEBIAN_VERSION="$DEBIAN_VERSION"
 RPI_DEBIAN_MIRROR_URL="http://mirrordirector.raspbian.org/raspbian"
 RPI_DEBIAN_SECTIONS="main contrib non-free rpi"
