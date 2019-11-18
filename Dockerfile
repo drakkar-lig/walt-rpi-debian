@@ -26,7 +26,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     vim net-tools procps subversion make gcc g++ libncurses5-dev bzip2 \
     wget cpio python unzip bc kpartx dosfstools debootstrap debian-archive-keyring \
     qemu-user-static:i386 git flex bison pkg-config zlib1g-dev libglib2.0-dev \
-    libpixman-1-dev && \
+    libpixman-1-dev gcc-arm-linux-gnueabi && \
     apt-get clean
 
 # populate target os filesystem
@@ -60,7 +60,7 @@ ADD Module.symvers.README /rpi_fs/usr/src/linux-source-${RPI_KERNEL_VERSION}/
 
 # download and compile patched qemu
 # (we have to install walt software within the target filesystem
-#  binfmt_misc may not be available here, so we need a specific qemu-aarch64
+#  binfmt_misc may not be available here, so we need a specific qemu-arm
 #  patched for added option '-execve')
 WORKDIR /root
 RUN git clone https://github.com/drakkar-lig/qemu-execve.git && \
@@ -69,11 +69,22 @@ RUN git clone https://github.com/drakkar-lig/qemu-execve.git && \
     ./configure --target-list=arm-linux-user --static && \
     make -j
 
+# download and build a linux kernel compatible with qemu arm 'virt' machine
+RUN svn co -q https://github.com/torvalds/linux/tags/v4.14 linux
+WORKDIR /root/linux
+ENV ARCH=arm
+ADD linux.config .config
+RUN make -j
+RUN make modules_install INSTALL_MOD_PATH=/rpi_fs
+RUN mkdir -p /rpi_fs/boot/qemu-arm && \
+    cp arch/arm/boot/zImage /rpi_fs/boot/qemu-arm/kernel
+ADD start.ipxe /rpi_fs/boot/qemu-arm/
+
 # chroot customization image
 # **************************
 FROM scratch as chroot_image
 MAINTAINER Etienne Duble <etienne.duble@imag.fr>
-LABEL walt.node.models=rpi-b,rpi-b-plus,rpi-2-b,rpi-3-b,rpi-3-b-plus
+LABEL walt.node.models=rpi-b,rpi-b-plus,rpi-2-b,rpi-3-b,rpi-3-b-plus,qemu-arm
 WORKDIR /
 COPY --from=builder /rpi_fs /
 COPY --from=builder /root/qemu-execve/arm-linux-user/qemu-arm /usr/local/bin/

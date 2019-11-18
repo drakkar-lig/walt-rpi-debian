@@ -1,5 +1,5 @@
 
-ALL_RPI_TYPES=rpi-b rpi-b-plus rpi-2-b rpi-3-b rpi-3-b-plus
+ALL_RPI_TYPES=rpi-b rpi-b-plus rpi-2-b rpi-3-b rpi-3-b-plus qemu-arm
 
 all: rpi_image
 
