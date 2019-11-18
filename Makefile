@@ -1,16 +1,10 @@
 
 ALL_RPI_TYPES=rpi-b rpi-b-plus rpi-2-b rpi-3-b rpi-3-b-plus
 
-all: .date_files/rpi_image
+all: rpi_image
 
-.date_files/rpi_image: create_rpi_image.sh .date_files/rpi_base_image
-	./create_rpi_image.sh && touch $@
-
-.date_files/rpi_base_image: create_rpi_base_image.sh .date_files/rpi_builder_image
-	./create_rpi_base_image.sh && touch $@
-
-.date_files/rpi_builder_image: create_rpi_builder_image.sh
-	./create_rpi_builder_image.sh && touch $@
+rpi_image:
+	docker build -t "waltplatform/rpi-stretch" .
 
 publish:
 	docker push waltplatform/rpi-stretch

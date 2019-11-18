@@ -1,0 +1,8 @@
+#!/bin/sh
+if [ "$1" = "1" ]
+then
+    led_module="heartbeat"
+else
+    led_module="mmc0"
+fi
+echo $led_module > /sys/class/leds/led0/trigger
