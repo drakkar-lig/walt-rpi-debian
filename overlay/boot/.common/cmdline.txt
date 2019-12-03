@@ -1,1 +1,1 @@
-console=serial0,115200 console=tty1 root=/dev/nfs nfsroot=/var/lib/walt/nodes/%s/fs,nfsvers=3,acregmax=5 init=/bin/walt-init ip=dhcp panic=15
+console=serial0,115200 console=tty1 root=/dev/nfs nfsroot=/var/lib/walt/nodes/%s/fs,nfsvers=3,acregmax=5 init=/bin/walt-init ip=dhcp panic=15 net.ifnames=0 biosdevname=0
