@@ -7,11 +7,12 @@ MAINTAINER Etienne Duble <etienne.duble@imag.fr>
 # Of course those two must match the same kernel version.
 # Also note that we will use svn instead of git, in order
 # to avoid cloning the whole history.
-ENV RPI_FIRMWARE_REPO="https://github.com/raspberrypi/firmware/tags/1.20190215"
-ENV RPI_KERNEL_REPO="https://github.com/raspberrypi/linux/tags/raspberrypi-kernel_1.20190215-1"
+ENV RPI_FIRMWARE_REPO="https://github.com/raspberrypi/firmware/tags/1.20200723"
+ENV RPI_KERNEL_REPO="https://github.com/raspberrypi/linux/tags/raspberrypi-kernel_1.20200723-1"
 # RPI_KERNEL_VERSION must match version of modules, see subdir 'modules' of firmware repo
-ENV RPI_KERNEL_VERSION="4.14.98"
-ENV RPI_DEBIAN_VERSION="stretch"
+ENV RPI_KERNEL_VERSION="5.4.51"
+ENV RPI_VIRT_KERNEL_VERSION="v5.4"
+ENV RPI_DEBIAN_VERSION="buster"
 ENV RPI_DEBIAN_MIRROR_URL="http://mirrordirector.raspbian.org/raspbian"
 ENV RPI_DEBIAN_SECTIONS="main contrib non-free rpi"
 
@@ -26,7 +27,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     vim net-tools procps subversion make gcc g++ libncurses5-dev bzip2 \
     wget cpio python unzip bc kpartx dosfstools debootstrap debian-archive-keyring \
     qemu-user-static:i386 git flex bison pkg-config zlib1g-dev libglib2.0-dev \
-    libpixman-1-dev gcc-arm-linux-gnueabi && \
+    libpixman-1-dev gcc-arm-linux-gnueabi libssl-dev kmod && \
     apt-get clean
 
 # populate target os filesystem
@@ -55,6 +56,8 @@ RUN cd /rpi_fs && mkdir -p usr/src && cd usr/src && \
     ln -s /usr/src/linux-source-${RPI_KERNEL_VERSION} \
             ../../../lib/modules/${RPI_KERNEL_VERSION}-v7+/build && \
     ln -s /usr/src/linux-source-${RPI_KERNEL_VERSION} \
+            ../../../lib/modules/${RPI_KERNEL_VERSION}-v7l+/build && \
+    ln -s /usr/src/linux-source-${RPI_KERNEL_VERSION} \
             ../../../lib/modules/${RPI_KERNEL_VERSION}+/build
 ADD Module.symvers.README /rpi_fs/usr/src/linux-source-${RPI_KERNEL_VERSION}/
 
@@ -70,11 +73,12 @@ RUN git clone https://github.com/drakkar-lig/qemu-execve.git && \
     make -j
 
 # download and build a linux kernel compatible with qemu arm 'virt' machine
-RUN svn co -q https://github.com/torvalds/linux/tags/v4.14 linux
+RUN svn co -q https://github.com/torvalds/linux/tags/${RPI_VIRT_KERNEL_VERSION} linux
 WORKDIR /root/linux
 ENV ARCH=arm
+ENV CROSS_COMPILE=arm-linux-gnueabi-
 ADD linux.config .config
-RUN make -j
+RUN make olddefconfig && make -j
 RUN make modules_install INSTALL_MOD_PATH=/rpi_fs
 RUN mkdir -p /rpi_fs/boot/qemu-arm && \
     cp arch/arm/boot/zImage /rpi_fs/boot/qemu-arm/kernel
@@ -84,7 +88,8 @@ ADD start.ipxe /rpi_fs/boot/qemu-arm/
 # **************************
 FROM scratch as chroot_image
 MAINTAINER Etienne Duble <etienne.duble@imag.fr>
-LABEL walt.node.models=rpi-b,rpi-b-plus,rpi-2-b,rpi-3-b,rpi-3-b-plus,qemu-arm
+LABEL walt.node.models=rpi-b,rpi-b-plus,rpi-2-b,rpi-3-b,rpi-3-b-plus,rpi-4-b,qemu-arm
+LABEL walt.server.minversion=4
 WORKDIR /
 COPY --from=builder /rpi_fs /
 COPY --from=builder /root/qemu-execve/arm-linux-user/qemu-arm /usr/local/bin/
@@ -105,9 +110,15 @@ RUN apt-get update && \
     apt-get -y --no-install-recommends install \
         init ssh sudo kmod usbutils python-pip udev lldpd vim texinfo \
         iputils-ping python-serial ntpdate ifupdown lockfile-progs \
-        avahi-daemon libnss-mdns cron ptpd busybox-static netcat dosfstools \
-        u-boot-tools && \
+        avahi-daemon libnss-mdns cron ptpd netcat dosfstools \
+        u-boot-tools libraspberrypi-bin && \
     apt-get clean
+
+# install an older static version of busybox for compatibility with
+# node init scripts distributed with older walt server version
+# (if installing busybox-static package instead, we would have
+# to set LABEL walt.server.minversion to 5)
+COPY --from=waltplatform/rpi-stretch /bin/busybox /bin
 
 # add various files
 ADD overlay /
@@ -118,7 +129,8 @@ RUN cd /boot/.common/ && ./generate-start-uboot.sh && \
     /create_model_boot_dir.sh rpi-b-plus kernel.img bcm2708-rpi-b-plus.dtb 0 && \
     /create_model_boot_dir.sh rpi-2-b kernel7.img bcm2709-rpi-2-b.dtb 0 && \
     /create_model_boot_dir.sh rpi-3-b kernel7.img bcm2710-rpi-3-b.dtb 1 && \
-    /create_model_boot_dir.sh rpi-3-b-plus kernel7.img bcm2710-rpi-3-b-plus.dtb 1
+    /create_model_boot_dir.sh rpi-3-b-plus kernel7.img bcm2710-rpi-3-b-plus.dtb 1 && \
+    /create_model_boot_dir.sh rpi-4-b kernel7l.img bcm2711-rpi-4-b.dtb 1 4
 
 # update kernel modules setup
 RUN for subdir in $(cd /lib/modules/; ls -1); do depmod $subdir; done
