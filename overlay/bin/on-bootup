@@ -1,0 +1,103 @@
+#!/bin/sh
+
+# This file is executed when the node has booted.
+# You can edit it to run any initialization procedure.
+
+# Rpi4 firmware update for network boot
+# #####################################
+# The code below allows to automatically update the rpi4 bootloader
+# configuration on first boot, to allow network boot without a SD card.
+# This is only useful in the default image, thus you can remove it if you wish.
+
+is_rpi4() {
+    cat /proc/cpuinfo | grep "^Model" | grep -w 4 >/dev/null
+}
+
+has_char() {
+    s="$1"
+    c="$2"
+    case "$s" in
+    *$c*)
+        return 0    # ok
+        ;;
+    *)
+        return 1    # not ok
+        ;;
+    esac
+}
+
+possibly_update_rpi4_firmware() {
+    if ! is_rpi4
+    then
+        return      # nothing to do
+    fi
+
+    boot_order=$(vcgencmd bootloader_config | grep BOOT_ORDER= | sed -e "s/.*=//")
+
+    new_boot_order="$boot_order"
+
+    if ! has_char "$new_boot_order" 2
+    then
+        if has_char "$new_boot_order" 1
+        then
+            # try network boot if SD boot fails
+            new_boot_order="$(echo "$new_boot_order" | sed -e "s/1/21/")"
+        else
+            # Strange, SD card is not allowed. Put the network boot first.
+            # (bootorder is interpreted right to left)
+            new_boot_order="${new_boot_order}2"
+        fi
+    fi
+
+    if ! has_char "$new_boot_order" f
+    then
+        # f char allows to retry boot with first option when all options
+        # have failed (loop)
+        new_boot_order="$(echo "$new_boot_order" | sed -e "s/0x\(.*\)/0xf\1/")"
+    fi
+
+    if [ "$new_boot_order" = "$boot_order" ]
+    then
+        return      # nothing to do
+    fi
+
+    # select firmware file (preferably the one we tested, otherwise the newest stable one)
+    firmware="/lib/firmware/raspberrypi/bootloader/stable/pieeprom-2020-07-16.bin"
+    if [ ! -f "$firmware" ]
+    then
+        firmware="$(ls -1rt /lib/firmware/raspberrypi/bootloader/stable/pieeprom-*.bin | tail -n 1)"
+        if [ -z "$firmware" ]
+        then
+            echo "Could not find firmware file!" >&2
+            return 1
+        fi
+    fi
+
+    # build a modified copy of the firmware with appropriate configuration
+    cp "$firmware" /tmp/pieeprom.bin
+    rpi-eeprom-config /tmp/pieeprom.bin | sed -e "s/\(BOOT_ORDER=\).*/\1$new_boot_order/" > /tmp/bootconf.txt
+    rpi-eeprom-config --out /tmp/pieeprom-new.bin --config /tmp/bootconf.txt /tmp/pieeprom.bin
+
+    # u-boot (our current version at least) does not transmit board revision in the device tree,
+    # thus it appears as 0000 in /proc/cpuinfo and it prevents rpi-eeprom-update to work.
+    # to work around this, we bind mount a file at /proc/cpuinfo with appropriate revision.
+    cat /proc/cpuinfo | sed -e 's/\(Revision.*: \).*/\1c03112/g' > /tmp/cpuinfo
+    mount -o bind /tmp/cpuinfo /proc/cpuinfo
+    
+    # call rpi-eeprom-update
+    mount /media/sdcard
+    BOOTFS=/media/sdcard rpi-eeprom-update -d -f /tmp/pieeprom-new.bin
+    
+    # cleanup
+    umount /media/sdcard
+    umount /proc/cpuinfo
+
+    # inform user 
+    echo "*** EEPROM bootloader firmware will be updated to allow network boot without a SD card."
+    echo "*** The OS will now be rebooted for this update to take effect."
+    sleep 3
+    reboot -f
+}
+
+# run firmware update if needed
+possibly_update_rpi4_firmware

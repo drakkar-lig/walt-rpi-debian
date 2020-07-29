@@ -111,7 +111,7 @@ RUN apt-get update && \
         init ssh sudo kmod usbutils python-pip udev lldpd vim texinfo \
         iputils-ping python-serial ntpdate ifupdown lockfile-progs \
         avahi-daemon libnss-mdns cron ptpd netcat dosfstools \
-        u-boot-tools libraspberrypi-bin && \
+        u-boot-tools libraspberrypi-bin rpi-eeprom && \
     apt-get clean
 
 # install an older static version of busybox for compatibility with
