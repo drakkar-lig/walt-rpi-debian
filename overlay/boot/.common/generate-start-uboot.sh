@@ -55,7 +55,7 @@ tftp ${kernel_addr_r} ${serverip}:kernel || reset
 
 # compute kernel command line args
 setenv nfs_root "/var/lib/walt/nodes/%s/fs"
-setenv nfs_bootargs "root=/dev/nfs nfsroot=${nfs_root},nfsvers=3,acregmax=5"
+setenv nfs_bootargs "root=/dev/nfs nfsroot=${nfs_root},nfsvers=3,actimeo=300,proto=tcp"
 setenv other_bootargs "init=${walt_init} ip=dhcp panic=15 net.ifnames=0 biosdevname=0"
 setenv bootargs "$bootargs $nfs_bootargs $other_bootargs"
 
