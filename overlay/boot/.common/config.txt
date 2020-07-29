@@ -2,5 +2,7 @@ enable_uart=1
 max_usb_current=1
 # poe-fan (3b+)
 # see https://github.com/raspberrypi/firmware/blob/master/boot/overlays/README#L1690 
-dtparam=poe_fan_temp0=70000,poe_fan_temp0_hyst=5000
-dtparam=poe_fan_temp1=75000,poe_fan_temp1_hyst=5000
+dtparam=poe_fan_temp0=70000,poe_fan_temp0_hyst=3000
+dtparam=poe_fan_temp1=73000,poe_fan_temp1_hyst=3000
+dtparam=poe_fan_temp2=76000,poe_fan_temp2_hyst=2000
+dtparam=poe_fan_temp3=78000,poe_fan_temp3_hyst=2000
