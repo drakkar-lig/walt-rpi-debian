@@ -29,7 +29,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     wget cpio python unzip bc kpartx dosfstools debootstrap debian-archive-keyring \
     qemu-user-static:i386 git flex bison pkg-config zlib1g-dev libglib2.0-dev \
     libpixman-1-dev gcc-arm-linux-gnueabi libssl-dev kmod \
-    dpkg-dev debhelper bash-completion shellcheck && \
+    dpkg-dev debhelper bash-completion shellcheck rdfind && \
     apt-get clean
 
 # populate target os filesystem
@@ -85,6 +85,9 @@ WORKDIR /root
 RUN git clone -b nbfs $INITRAMFS_TOOLS_REPO
 RUN cd initramfs-tools && dpkg-buildpackage --no-sign
 RUN mv initramfs-tools*.deb /rpi_fs/root
+
+# deduplicate
+RUN rdfind -makehardlinks true /rpi_fs
 
 # chroot customization image
 # **************************
