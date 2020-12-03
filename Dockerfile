@@ -15,6 +15,7 @@ ENV RPI_VIRT_KERNEL_VERSION="v5.4"
 ENV RPI_DEBIAN_VERSION="buster"
 ENV RPI_DEBIAN_MIRROR_URL="http://mirrordirector.raspbian.org/raspbian"
 ENV RPI_DEBIAN_SECTIONS="main contrib non-free rpi"
+ENV INITRAMFS_TOOLS_REPO="https://gricad-gitlab.univ-grenoble-alpes.fr/dublee/initramfs-tools"
 
 # setup package management
 RUN echo deb http://deb.debian.org/debian stretch-backports main >> \
@@ -27,7 +28,8 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     vim net-tools procps subversion make gcc g++ libncurses5-dev bzip2 \
     wget cpio python unzip bc kpartx dosfstools debootstrap debian-archive-keyring \
     qemu-user-static:i386 git flex bison pkg-config zlib1g-dev libglib2.0-dev \
-    libpixman-1-dev gcc-arm-linux-gnueabi libssl-dev kmod && \
+    libpixman-1-dev gcc-arm-linux-gnueabi libssl-dev kmod \
+    dpkg-dev debhelper bash-completion shellcheck && \
     apt-get clean
 
 # populate target os filesystem
@@ -52,13 +54,7 @@ RUN cd /rpi_fs/lib && svn co -q $RPI_FIRMWARE_REPO/modules && \
 RUN cd /rpi_fs && mkdir -p usr/src && cd usr/src && \
     svn co -q $RPI_KERNEL_REPO linux-source-${RPI_KERNEL_VERSION} && \
     cd linux-source-${RPI_KERNEL_VERSION} && rm -rf .svn && \
-    mkdir extra && cp /tmp/extra/Module*.symvers extra && \
-    ln -s /usr/src/linux-source-${RPI_KERNEL_VERSION} \
-            ../../../lib/modules/${RPI_KERNEL_VERSION}-v7+/build && \
-    ln -s /usr/src/linux-source-${RPI_KERNEL_VERSION} \
-            ../../../lib/modules/${RPI_KERNEL_VERSION}-v7l+/build && \
-    ln -s /usr/src/linux-source-${RPI_KERNEL_VERSION} \
-            ../../../lib/modules/${RPI_KERNEL_VERSION}+/build
+    mkdir extra && cp /tmp/extra/Module*.symvers extra
 ADD Module.symvers.README /rpi_fs/usr/src/linux-source-${RPI_KERNEL_VERSION}/
 
 # download and compile patched qemu
@@ -82,7 +78,13 @@ RUN make olddefconfig && make -j
 RUN make modules_install INSTALL_MOD_PATH=/rpi_fs
 RUN mkdir -p /rpi_fs/boot/qemu-arm && \
     cp arch/arm/boot/zImage /rpi_fs/boot/qemu-arm/kernel
-ADD start.ipxe /rpi_fs/boot/qemu-arm/
+RUN cp include/config/kernel.release /rpi_fs/boot/qemu-arm/
+
+# download and build modified initramfs-tools package (mainly to allow nbfs boot)
+WORKDIR /root
+RUN git clone -b nbfs $INITRAMFS_TOOLS_REPO
+RUN cd initramfs-tools && dpkg-buildpackage --no-sign
+RUN mv initramfs-tools*.deb /rpi_fs/root
 
 # chroot customization image
 # **************************
@@ -111,7 +113,7 @@ RUN apt-get update && \
         init ssh sudo kmod usbutils python-pip udev lldpd vim texinfo \
         iputils-ping python-serial ntpdate ifupdown lockfile-progs \
         avahi-daemon libnss-mdns cron ptpd netcat dosfstools \
-        u-boot-tools libraspberrypi-bin rpi-eeprom && \
+        u-boot-tools libraspberrypi-bin rpi-eeprom initramfs-tools && \
     apt-get clean
 
 # install an older static version of busybox for compatibility with
@@ -123,20 +125,9 @@ COPY --from=waltplatform/rpi-stretch /bin/busybox /bin
 # add various files
 ADD overlay /
 
-# generate start.uboot and populate boot dirs
-RUN cd /boot/.common/ && ./generate-start-uboot.sh && \
-    /create_model_boot_dir.sh rpi-b kernel.img bcm2708-rpi-b.dtb 0 && \
-    /create_model_boot_dir.sh rpi-b-plus kernel.img bcm2708-rpi-b-plus.dtb 0 && \
-    /create_model_boot_dir.sh rpi-2-b kernel7.img bcm2709-rpi-2-b.dtb 0 && \
-    /create_model_boot_dir.sh rpi-3-b kernel7.img bcm2710-rpi-3-b.dtb 1 && \
-    /create_model_boot_dir.sh rpi-3-b-plus kernel7.img bcm2710-rpi-3-b-plus.dtb 1 && \
-    /create_model_boot_dir.sh rpi-4-b kernel7l.img bcm2711-rpi-4-b.dtb 1 4
-
-# update kernel modules setup
-RUN for subdir in $(cd /lib/modules/; ls -1); do depmod $subdir; done
-
-# cleanup
-RUN rm /usr/local/bin/qemu-arm /create_model_boot_dir.sh
+# run customization script, then clean up
+RUN /customize.sh && \
+    rm /usr/local/bin/qemu-arm /customize.sh
 SHELL ["/bin/sh", "-c"]
 
 # set an entrypoint (handy when debugging)
