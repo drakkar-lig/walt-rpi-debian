@@ -88,6 +88,9 @@ create_rpi_model_boot_dir rpi-3-b kernel7.img bcm2710-rpi-3-b.dtb 1 "-v7+"
 create_rpi_model_boot_dir rpi-3-b-plus kernel7.img bcm2710-rpi-3-b-plus.dtb 1 "-v7+"
 create_rpi_model_boot_dir rpi-4-b kernel7l.img bcm2711-rpi-4-b.dtb 1 "-v7l+" 4
 
+# enable service to save uptime in /run when ready
+systemctl enable uptime-ready
+
 # tweak for faster bootup
 systemctl disable systemd-timesyncd
 systemctl disable apt-daily.timer

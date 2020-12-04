@@ -1,0 +1,11 @@
+[Unit]
+Description=Log time when system is ready
+After=sshd.service
+
+[Service]
+ExecStart=/bin/cp /proc/uptime /run/uptime-ready
+Type=oneshot
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
