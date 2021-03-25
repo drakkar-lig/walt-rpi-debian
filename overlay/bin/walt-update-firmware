@@ -1,13 +1,9 @@
 #!/bin/sh
 
-# This file is executed when the node has booted.
-# You can edit it to run any initialization procedure.
-
 # Rpi4 firmware update for network boot
 # #####################################
-# The code below allows to automatically update the rpi4 bootloader
-# configuration on first boot, to allow network boot without a SD card.
-# This is only useful in the default image, thus you can remove it if you wish.
+# The code below allows to update the rpi4 bootloader
+# configuration to allow network boot without a SD card.
 
 is_rpi4() {
     cat /proc/cpuinfo | grep "^Model" | grep -w 4 >/dev/null
