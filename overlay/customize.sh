@@ -96,3 +96,6 @@ systemctl disable systemd-timesyncd
 systemctl disable apt-daily.timer
 systemctl disable apt-daily-upgrade.timer
 systemctl disable rpi-eeprom-update
+
+# Allow passwordless root login on the serial console
+RUN sed -i -e 's#^root:[^:]*:#root::#' /etc/shadow
