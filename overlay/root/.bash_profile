@@ -24,3 +24,6 @@ EOF
 }
 
 auto_build_dockerfile
+
+# Display the node hostname on client terminal
+echo -en "\x1b]2;$(hostname)\x07"
